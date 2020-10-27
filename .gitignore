@@ -1,3 +1,4 @@
 .idea
+.zip
 cmake-build-debug
 cmake-build-release
