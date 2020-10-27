@@ -9,44 +9,44 @@
 
 namespace Xml {
 
-class Node {
-public:
-  Node(std::string name, std::unordered_map<std::string, std::string> attrs);
+    class Node {
+    public:
+        Node(std::string name, std::unordered_map<std::string, std::string> attrs);
 
-  const std::vector<Node>& Children() const;
-  void AddChild(Node node);
-  std::string_view Name() const;
+        const std::vector<Node> &Children() const;
 
-  template <typename T>
-  T AttributeValue(const std::string& name) const;
+        void AddChild(Node node);
 
-private:
-  std::string name;
-  std::vector<Node> children;
-  std::unordered_map<std::string, std::string> attrs;
-};
+        std::string_view Name() const;
 
-class Document {
-public:
-  explicit Document(Node root);
+        template<typename T>
+        T AttributeValue(const std::string &name) const;
 
-  const Node& GetRoot() const;
+    private:
+        std::string name;
+        std::vector<Node> children;
+        std::unordered_map<std::string, std::string> attrs;
+    };
 
-private:
-  Node root;
-};
+    class Document {
+    public:
+        explicit Document(Node root);
 
-Document Load(std::istream& input);
+        const Node &GetRoot() const;
+
+    private:
+        Node root;
+    };
+
+    Document Load(std::istream &input);
 
 
-
-
-template <typename T>
-inline T Node::AttributeValue(const std::string& name) const {
-  std::istringstream attr_input(attrs.at(name));
-  T result;
-  attr_input >> result;
-  return result;
-}
+    template<typename T>
+    inline T Node::AttributeValue(const std::string &name) const {
+        std::istringstream attr_input(attrs.at(name));
+        T result;
+        attr_input >> result;
+        return result;
+    }
 
 }
