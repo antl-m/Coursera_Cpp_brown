@@ -8,8 +8,7 @@
 #include <unordered_map>
 
 struct StatsAggregator {
-    virtual ~StatsAggregator() {
-    }
+    virtual ~StatsAggregator() = default;
 
     virtual void Process(int value) = 0;
 
@@ -18,8 +17,7 @@ struct StatsAggregator {
 
 namespace StatsAggregators {
 
-
-    class SumStatsAggregator : public StatsAggregator {
+    class Sum : public StatsAggregator {
     public:
         void Process(int value) override;
 
@@ -29,7 +27,7 @@ namespace StatsAggregators {
         int sum = 0;
     };
 
-    class MinStatsAggregator : public StatsAggregator {
+    class Min : public StatsAggregator {
     public:
         void Process(int value) override;
 
@@ -42,7 +40,7 @@ namespace StatsAggregators {
         std::optional<int> current_min;
     };
 
-    class MaxStatsAggregator : public StatsAggregator {
+    class Max : public StatsAggregator {
     public:
         void Process(int value) override;
 
@@ -52,7 +50,7 @@ namespace StatsAggregators {
         std::optional<int> current_max;
     };
 
-    class AverageStatsAggregator : public StatsAggregator {
+    class Average : public StatsAggregator {
     public:
         void Process(int value) override;
 
@@ -63,7 +61,7 @@ namespace StatsAggregators {
         int total = 0;
     };
 
-    class ModeStatsAggregator : public StatsAggregator {
+    class Mode : public StatsAggregator {
     public:
         void Process(int value) override;
 
@@ -74,7 +72,7 @@ namespace StatsAggregators {
         std::optional<int> mode;
     };
 
-    class CompositeStatsAggregator : public StatsAggregator {
+    class Composite : public StatsAggregator {
     public:
         void Process(int value) override;
 
@@ -86,16 +84,17 @@ namespace StatsAggregators {
         std::vector<std::unique_ptr<StatsAggregator>> aggregators;
     };
 
+
+    void TestSum();
+
+    void TestMin();
+
+    void TestMax();
+
+    void TestAverage();
+
+    void TestMode();
+
+    void TestComposite();
+
 } //namespace StatsAggregators
-
-void TestSumStatsAggregator();
-
-void TestMinStatsAggregator();
-
-void TestMaxStatsAggregator();
-
-void TestAverageStatsAggregator();
-
-void TestModeStatsAggregator();
-
-void TestCompositeStatsAggregator();
