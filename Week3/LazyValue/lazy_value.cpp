@@ -2,18 +2,31 @@
 
 #include <functional>
 #include <string>
+#include <utility>
 using namespace std;
 
 template <typename T>
 class LazyValue {
 public:
-  explicit LazyValue(std::function<T()> init);
+  explicit LazyValue(std::function<T()> init): init(std::move(init)) {}
 
-  bool HasValue() const;
-  const T& Get() const;
+  bool HasValue() const{
+    return value_ptr;
+  }
+  const T& Get() const{
+    if(!HasValue())
+      value_ptr = new T(init());
+    return *value_ptr;
+  }
 
+  ~LazyValue(){
+    if(HasValue())
+      delete value_ptr;
+  }
+  
 private:
-
+  mutable T* value_ptr = nullptr;
+  std::function<T()> init;
 };
 
 void UseExample() {
