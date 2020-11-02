@@ -32,13 +32,35 @@ void PrintCoeff(std::ostream& out, int i, const T& coef, bool printed) {
 template<typename T>
 class Polynomial {
 private:
-  std::vector<T> coeffs_ = {0};
+  mutable std::vector<T> coeffs_ = {0};
 
-  void Shrink() {
+  void Shrink() const {
     while (coeffs_.size() > 1 && coeffs_.back() == 0) {
       coeffs_.pop_back();
     }
   }
+
+  struct ProxyIndex {
+    Polynomial<T> *this_;
+    std::size_t degree;
+
+    operator T () const {
+      if(degree < this_->coeffs_.size())
+          return this_->coeffs_[degree];
+      else
+          return T(0);
+    }
+
+    void operator=(T val){
+      if(degree > this_->Degree()) {
+        this_->coeffs_.resize(degree + 1);
+      }
+      this_->coeffs_[degree] = val;
+      this_->Shrink();
+    }
+  };
+
+  friend struct ProxyIndex;
 
 public:
   Polynomial() = default;
@@ -90,6 +112,9 @@ public:
   }
 
   // Реализуйте неконстантную версию operator[]
+  ProxyIndex operator [](size_t degree) {
+    return {this, degree};
+  }
 
   T operator ()(const T& x) const {
     T res = 0;
