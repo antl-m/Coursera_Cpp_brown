@@ -17,22 +17,61 @@ public:
 
   struct WriteAccess {
     V& ref_to_value;
+    std::mutex& m;
+    ~WriteAccess(){
+        m.unlock();
+    }
   };
 
   struct ReadAccess {
     const V& ref_to_value;
+    std::mutex& m;
+    ~ReadAccess(){
+        m.unlock();
+    }
   };
 
-  explicit ConcurrentMap(size_t bucket_count);
+  explicit ConcurrentMap(size_t bucket_count): buckets(bucket_count), ms(bucket_count) {}
 
-  WriteAccess operator[](const K& key);
-  ReadAccess At(const K& key) const;
+  WriteAccess operator[](const K& key){
+    std::size_t i = hasher(key) % buckets.size();
+    ms[i].lock();
+    return {buckets[i][key], ms[i]};
+  }
+  ReadAccess At(const K& key) const {
+    std::size_t i = hasher(key) % buckets.size();
+    ms[i].lock();
+//    return {buckets[i].at(key), ms[i]};
+    try {
+      const auto& value = buckets[i].at(key);
+      return { value, ms[i] };
+    } catch (std::out_of_range&) {
+      ms[i].unlock();
+      throw std::out_of_range("Penis");
+    }
+  }
 
-  bool Has(const K& key) const;
+  bool Has(const K& key) const{
+    std::size_t i = hasher(key) % buckets.size();
+    ms[i].lock();
+    bool res = buckets[i].count(key);
+    ms[i].unlock();
+    return res;
+  }
 
-  MapType BuildOrdinaryMap() const;
+  MapType BuildOrdinaryMap() const{
+    MapType result;
+    for (std::size_t i = 0; i < buckets.size(); ++i) {
+      ms[i].lock();
+      result.insert(buckets[i].begin(), buckets[i].end());
+      ms[i].unlock();
+    }
+    return result;
+  }
 
 private:
+  std::vector<MapType> buckets;
+  mutable std::vector<std::mutex> ms;
   Hash hasher;
 };
 
