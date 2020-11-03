@@ -28,16 +28,38 @@ public:
 protected:
   // реализации должны вызывать PassOn, чтобы передать объект дальше
   // по цепочке обработчиков
-  void PassOn(unique_ptr<Email> email) const;
+  void PassOn(unique_ptr<Email> email) const{
+    if(next)
+      next->Process(move(email));
+  }
+
+  unique_ptr<Worker> next;
 
 public:
-  void SetNext(unique_ptr<Worker> next);
+  void SetNext(unique_ptr<Worker> next){
+    if(this->next)
+        return this->next->SetNext(move(next));
+    this->next = move(next);
+  }
 };
 
 
 class Reader : public Worker {
 public:
-  // реализуйте класс
+  Reader(istream& input): in(input) {}
+
+  void Run() override {
+    Email e;
+    while(getline(in, e.from) && getline(in, e.to) && getline(in, e.body)){
+      PassOn(make_unique<Email>(move(e)));
+    }
+  }
+
+  void Process(unique_ptr<Email> email) override {
+    PassOn(move(email));
+  }
+
+    istream& in;
 };
 
 
@@ -45,20 +67,45 @@ class Filter : public Worker {
 public:
   using Function = function<bool(const Email&)>;
 
+  explicit Filter(Function f): pred(move(f)) {}
+
+  void Process(unique_ptr<Email> email) override {
+    if(pred(*email))
+      PassOn(move(email));
+  }
+
 public:
-  // реализуйте класс
+  Function pred;
 };
 
 
 class Copier : public Worker {
 public:
-  // реализуйте класс
+  string to;
+
+  Copier(string to): to(move(to)) {}
+
+  void Process(unique_ptr<Email> email) override {
+    Email e = *email;
+    PassOn(move(email));
+    if(to != e.to){
+      e.to = to;
+      PassOn(make_unique<Email>(move(e)));
+    }
+  }
 };
 
 
 class Sender : public Worker {
 public:
-  // реализуйте класс
+  ostream& out;
+
+  Sender(ostream& out): out(out) {}
+
+  void Process(unique_ptr<Email> email) override {
+    out << email->from << '\n' << email->to << '\n' << email->body << '\n';
+    PassOn(move(email));
+  }
 };
 
 
@@ -66,19 +113,34 @@ public:
 class PipelineBuilder {
 public:
   // добавляет в качестве первого обработчика Reader
-  explicit PipelineBuilder(istream& in);
+  explicit PipelineBuilder(istream& in){
+    first = make_unique<Reader>(in);
+  }
 
   // добавляет новый обработчик Filter
-  PipelineBuilder& FilterBy(Filter::Function filter);
+  PipelineBuilder& FilterBy(Filter::Function filter){
+    first->SetNext(make_unique<Filter>(filter));
+    return *this;
+  }
 
   // добавляет новый обработчик Copier
-  PipelineBuilder& CopyTo(string recipient);
+  PipelineBuilder& CopyTo(string recipient){
+    first->SetNext(make_unique<Copier>(recipient));
+    return *this;
+  }
 
   // добавляет новый обработчик Sender
-  PipelineBuilder& Send(ostream& out);
+  PipelineBuilder& Send(ostream& out){
+    first->SetNext(make_unique<Sender>(out));
+    return *this;
+  }
 
   // возвращает готовую цепочку обработчиков
-  unique_ptr<Worker> Build();
+  unique_ptr<Worker> Build(){
+      return move(first);
+  }
+
+  unique_ptr<Worker> first;
 };
 
 
