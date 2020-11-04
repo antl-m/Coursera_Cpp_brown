@@ -5,6 +5,68 @@
 
 using namespace std;
 
+class ValueObj: public Expression {
+public:
+  ValueObj(int value): value_(value) {}
+
+  int Evaluate() const override {
+    return value_;
+  }
+
+  string ToString() const override {
+    return to_string(value_);
+  }
+
+private:
+  int value_;
+};
+
+class SumObj: public Expression {
+public:
+  SumObj(ExpressionPtr left, ExpressionPtr right): left_(move(left)), right_(move(right)){}
+
+  int Evaluate() const override {
+    return left_->Evaluate() + right_->Evaluate();
+  }
+
+  string ToString() const override {
+    ostringstream ss;
+    ss << '(' << left_->ToString() << ")+(" << right_->ToString() << ')';
+    return ss.str();
+  }
+
+private:
+  ExpressionPtr left_, right_;
+};
+
+class ProductObj: public Expression{
+public:
+  ProductObj(ExpressionPtr left, ExpressionPtr right): left_(move(left)), right_(move(right)){}
+
+  int Evaluate() const override {
+    return left_->Evaluate() * right_->Evaluate();
+  }
+
+  string ToString() const override {
+    ostringstream ss;
+    ss << '(' << left_->ToString() << ")*(" << right_->ToString() << ')';
+    return ss.str();
+  }
+
+private:
+  ExpressionPtr left_, right_;
+};
+
+ExpressionPtr Value(int value){
+  return make_unique<ValueObj>(value);
+}
+ExpressionPtr Sum(ExpressionPtr left, ExpressionPtr right){
+  return make_unique<SumObj>(move(left), move(right));
+}
+ExpressionPtr Product(ExpressionPtr left, ExpressionPtr right){
+  return make_unique<ProductObj>(move(left), move(right));
+}
+
 string Print(const Expression* e) {
   if (!e) {
     return "Null expression provided";
