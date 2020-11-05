@@ -2,6 +2,11 @@ cmake_minimum_required (VERSION 3.17)
 
 set(CMAKE_CXX_STANDARD 17)
 
+find_package(Boost)
+MESSAGE(STATUS "Boost_INCLUDE_DIRS:  " ${Boost_INCLUDE_DIRS})
+
+MESSAGE( STATUS "MINGW: " ${CMAKE_CXX_COMPILER})
+
 set (PROJECT 
 	Textures)
 
