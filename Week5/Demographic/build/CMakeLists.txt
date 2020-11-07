@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set (PROJECT 
 	Demographic)
 
-set (HEADERS)
+set (HEADERS ../help.h)
 
 set (SOURCES ../print_stats.cpp)
 
