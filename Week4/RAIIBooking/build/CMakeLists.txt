@@ -9,7 +9,8 @@ set (HEADERS
 		../old_booking_providers.h
 		../old_trip_manager.h
 		../new_booking_providers.h
-		../new_trip_manager.h)
+		../new_trip_manager.h
+		../booking.h)
 
 set (SOURCES
 		../test.cpp)
