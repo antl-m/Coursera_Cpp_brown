@@ -5,41 +5,74 @@
 using namespace std;
 
 // Реализуйте шаблон класса UniquePtr
-template <typename T>
+template<typename T>
 class UniquePtr {
-private:
-  // ???
-public:
-  UniquePtr();
-  UniquePtr(T * ptr);
-  UniquePtr(const UniquePtr&);
-  UniquePtr(UniquePtr&& other);
-  UniquePtr& operator = (const UniquePtr&);
-  UniquePtr& operator = (nullptr_t);
-  UniquePtr& operator = (UniquePtr&& other);
-  ~UniquePtr();
+ private:
+  T *data_ptr;
+ public:
+  UniquePtr() : data_ptr(nullptr) {}
+  UniquePtr(T *ptr) : data_ptr(ptr) {}
+  UniquePtr(const UniquePtr &) = delete;
+  UniquePtr(UniquePtr &&other) : data_ptr(other.data_ptr) {
+    other.data_ptr = nullptr;
+  }
+  UniquePtr &operator=(const UniquePtr &) = delete;
+  UniquePtr &operator=(nullptr_t) {
+    if (data_ptr)
+      delete data_ptr;
+    data_ptr = nullptr;
+    return *this;
+  }
+  UniquePtr &operator=(UniquePtr &&other) {
+    if (other.data_ptr != data_ptr) {
+      if (data_ptr)
+        delete data_ptr;
+      data_ptr = other.data_ptr;
+      other.data_ptr = nullptr;
+    }
+    return *this;
+  }
+  ~UniquePtr() {
+    if (data_ptr)
+      delete data_ptr;
+  }
 
-  T& operator * () const;
+  T &operator*() const {
+//    if(data_ptr)
+    return *data_ptr;
+  }
 
-  T * operator -> () const;
+  T *operator->() const {
+    return data_ptr;
+  }
 
-  T * Release();
+  T *Release() {
+    auto ret = data_ptr;
+    data_ptr = nullptr;
+    return ret;
+  }
 
-  void Reset(T * ptr);
+  void Reset(T *ptr) {
+    delete data_ptr;
+    data_ptr = ptr;
+  }
 
-  void Swap(UniquePtr& other);
+  void Swap(UniquePtr &other) {
+    std::swap(data_ptr, other.data_ptr);
+  }
 
-  T * Get() const;
+  T *Get() const {
+    return data_ptr;
+  }
 };
-
 
 struct Item {
   static int counter;
   int value;
-  Item(int v = 0): value(v) {
+  Item(int v = 0) : value(v) {
     ++counter;
   }
-  Item(const Item& other): value(other.value) {
+  Item(const Item &other) : value(other.value) {
     ++counter;
   }
   ~Item() {
@@ -48,7 +81,6 @@ struct Item {
 };
 
 int Item::counter = 0;
-
 
 void TestLifetime() {
   Item::counter = 0;
