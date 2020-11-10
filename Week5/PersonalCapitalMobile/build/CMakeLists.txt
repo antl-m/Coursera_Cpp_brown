@@ -7,7 +7,9 @@ set (PROJECT
 
 set (HEADERS)
 
-set (SOURCES ../budget_good_base.cpp)
+set (SOURCES
+		#../budget_good_base.cpp
+		../budget_bad_base.cpp)
 
 set (TESTS_SOURCES)
 
