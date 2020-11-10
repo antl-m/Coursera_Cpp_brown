@@ -94,19 +94,24 @@ bool AreSegmentsIntersected(IndexSegment lhs, IndexSegment rhs) {
   return !(lhs.right <= rhs.left || rhs.right <= lhs.left);
 }
 
-struct BulkMoneyAdder {
-  double delta = 0.0;
+struct MoneyState {
+  double earned = 0.0;
+  double spend = 0.0;
+  double ComputeIncome() {
+    return earned - spend;
+  }
 };
 
-constexpr uint8_t TAX_PERCENTAGE = 13;
+struct BulkMoneyAdder {
+  MoneyState delta;
+};
 
 struct BulkTaxApplier {
-  static constexpr double FACTOR = 1.0 - TAX_PERCENTAGE / 100.0;
-  uint32_t count = 0;
-
-  double ComputeFactor() const {
-    return pow(FACTOR, count);
+  BulkTaxApplier() {}
+  BulkTaxApplier(uint8_t proc) {
+    factor = 1.0 - proc / 100.0;
   }
+  double factor = 1;
 };
 
 class BulkLinearUpdater {
@@ -120,12 +125,14 @@ class BulkLinearUpdater {
       : tax_(tax) {}
 
   void CombineWith(const BulkLinearUpdater &other) {
-    tax_.count += other.tax_.count;
-    add_.delta = add_.delta * other.tax_.ComputeFactor() + other.add_.delta;
+    tax_.factor *= other.tax_.factor;
+    add_.delta.earned = add_.delta.earned * other.tax_.factor + other.add_.delta.earned;
+    add_.delta.spend += other.add_.delta.spend;
   }
 
-  double Collapse(double origin, IndexSegment segment) const {
-    return origin * tax_.ComputeFactor() + add_.delta * segment.length();
+  MoneyState Collapse(MoneyState origin, IndexSegment segment) const {
+    return {.earned = origin.earned * tax_.factor + add_.delta.earned * segment.length(),
+        .spend = origin.spend + add_.delta.spend * segment.length()};
   }
 
  private:
@@ -219,7 +226,7 @@ class SummingSegmentTree {
     }
 
     Data ProcessPartial(const NodeHolder &, IndexSegment, const Data &left_result, const Data &right_result) const {
-      return left_result + right_result;
+      return {left_result.earned + right_result.earned, left_result.spend + right_result.spend};
     }
   };
 
@@ -238,7 +245,10 @@ class SummingSegmentTree {
     }
 
     void ProcessPartial(const NodeHolder &node, IndexSegment) const {
-      node->data = (node->left ? node->left->data : Data()) + (node->right ? node->right->data : Data());
+      node->data = {(node->left ? node->left->data.earned : Data().earned) +
+          (node->right ? node->right->data.earned : Data().earned),
+                    (node->left ? node->left->data.spend : Data().spend) +
+                        (node->right ? node->right->data.spend : Data().spend)};
     }
 
    private:
@@ -308,7 +318,7 @@ IndexSegment MakeDateSegment(const Date &date_from, const Date &date_to) {
   return {ComputeDayIndex(date_from), ComputeDayIndex(date_to) + 1};
 }
 
-class BudgetManager : public SummingSegmentTree<double, BulkLinearUpdater> {
+class BudgetManager : public SummingSegmentTree<MoneyState, BulkLinearUpdater> {
  public:
   BudgetManager() : SummingSegmentTree(DAY_COUNT) {}
 };
@@ -320,7 +330,8 @@ struct Request {
   enum class Type {
     COMPUTE_INCOME,
     EARN,
-    PAY_TAX
+    PAY_TAX,
+    SPEND
   };
 
   Request(Type type) : type(type) {}
@@ -335,6 +346,7 @@ const unordered_map<string_view, Request::Type> STR_TO_REQUEST_TYPE = {
     {"ComputeIncome", Request::Type::COMPUTE_INCOME},
     {"Earn", Request::Type::EARN},
     {"PayTax", Request::Type::PAY_TAX},
+    {"Spend", Request::Type::SPEND}
 };
 
 template<typename ResultType>
@@ -356,7 +368,7 @@ struct ComputeIncomeRequest : ReadRequest<double> {
   }
 
   double Process(const BudgetManager &manager) const override {
-    return manager.ComputeSum(MakeDateSegment(date_from, date_to));
+    return manager.ComputeSum(MakeDateSegment(date_from, date_to)).ComputeIncome();
   }
 
   Date date_from = START_DATE;
@@ -374,7 +386,7 @@ struct EarnRequest : ModifyRequest {
   void Process(BudgetManager &manager) const override {
     const auto date_segment = MakeDateSegment(date_from, date_to);
     const double daily_income = income * 1.0 / date_segment.length();
-    manager.AddBulkOperation(date_segment, BulkMoneyAdder{daily_income});
+    manager.AddBulkOperation(date_segment, BulkMoneyAdder{daily_income, 0});
   }
 
   Date date_from = START_DATE;
@@ -386,15 +398,36 @@ struct PayTaxRequest : ModifyRequest {
   PayTaxRequest() : ModifyRequest(Type::PAY_TAX) {}
   void ParseFrom(string_view input) override {
     date_from = Date::FromString(ReadToken(input));
-    date_to = Date::FromString(input);
+    date_to = Date::FromString(ReadToken(input));
+    perc = ConvertToInt(input);
   }
 
   void Process(BudgetManager &manager) const override {
-    manager.AddBulkOperation(MakeDateSegment(date_from, date_to), BulkTaxApplier{1});
+    manager.AddBulkOperation(MakeDateSegment(date_from, date_to), BulkTaxApplier{perc});
   }
 
   Date date_from = START_DATE;
   Date date_to = START_DATE;
+  uint8_t perc = 0;
+};
+
+struct SpendRequest : ModifyRequest {
+  SpendRequest() : ModifyRequest(Type::SPEND) {}
+  void ParseFrom(string_view input) override {
+    date_from = Date::FromString(ReadToken(input));
+    date_to = Date::FromString(ReadToken(input));
+    expended = ConvertToInt(input);
+  }
+
+  void Process(BudgetManager &manager) const override {
+    const auto date_segment = MakeDateSegment(date_from, date_to);
+    const double daily_expended = expended * 1.0 / date_segment.length();
+    manager.AddBulkOperation(date_segment, BulkMoneyAdder{0, daily_expended});
+  }
+
+  Date date_from = START_DATE;
+  Date date_to = START_DATE;
+  size_t expended = 0;
 };
 
 RequestHolder Request::Create(Request::Type type) {
@@ -402,6 +435,7 @@ RequestHolder Request::Create(Request::Type type) {
     case Request::Type::COMPUTE_INCOME:return make_unique<ComputeIncomeRequest>();
     case Request::Type::EARN:return make_unique<EarnRequest>();
     case Request::Type::PAY_TAX:return make_unique<PayTaxRequest>();
+    case Request::Type::SPEND:return make_unique<SpendRequest>();
     default:return nullptr;
   }
 }
